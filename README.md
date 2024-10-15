@@ -1,7 +1,6 @@
 # <p align = "center"> ft_transcendence</p>
 
-<p align = "center">
-<a ref = https://github.com/Hotaruban><img transcendence = "ft_transcendence" src = "./ft_transcendencen.png"></a></p>
+<p align = "center"> <a href = https://github.com/Hotaruban><img transcendence = "ft_transcendence" src = "./ft_transcendencen.png"></a></p>
 
 ### <p align = "center">Summary:
 This project is about doing something you’ve never done before.<br>
