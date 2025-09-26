@@ -1,38 +1,10 @@
-## Transcendence
+# <p align = "center"> ft_transcendence</p>
 
-## Start the project:
-Here the list of command to use to start the project, from the Makefile.
+<p align = "center"> <a href = https://github.com/Hotaruban><img transcendence = "ft_transcendence" src = "./ft_transcendencen.png"></a></p>
 
-### To compile the project use the command make it will build and execute every containers
-- make
+### <p align = "center">Summary:
+This project is about doing something you’ve never done before.<br>
+Remind yourself the beginning of your journey in computer science.<br>
+Look at you now. Time to shine!</p>
 
-### To stop the containers use the command make stop
-- make stop
-
-### To clean every build files, secrets and more use the command make clean
-- make clean
-
-### To remove all image use commande make prune
-- make prune
-
-### make restart for stop and run
-- make restart
-
-### make list will show the list of dockers
-- make list
-
-### make volume will show the list of volume
-- make volume
-
-
-## Features
-- User authentication and management
-- Tournament score recording on the Ethereum blockchain
-- Real-time score retrieval and display
-
-## Branching Strategy
-- **main**: Production-ready code.
-- **Stable version**: Integration branch for all feature branches.
-- **bugfix/**: Branches for bug fixes
-
-#
+### The "ft_transcendence" project at 42 is a full-stack web development challenge that pushes participants to build a fully functional web application. The project involves creating a real-time multiplayer game, implementing authentication, managing databases, and ensuring responsive design across various devices. This project explores various aspects of web technologies such as front-end development, back-end logic, and database management, providing a comprehensive experience in building scalable and secure web applications. It emphasizes the importance of understanding security protocols, real-time communication, and full-stack development.
