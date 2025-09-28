@@ -1,69 +1,93 @@
-<script setup>
-import { computed, defineProps, onMounted, onUnmounted, ref } from 'vue';
+<template>
+  <div
+    :class="{
+      paddle_side_left: side === 'left',
+      'paddle_side_left-color': hasMoreThanTwoPlayers && side === 'left',
+      paddle_side_right: side === 'right',
+      'paddle_side_right-color': hasMoreThanTwoPlayers && side === 'right',
+    }"
+    :style="styles"
+    class="paddle"
+  >
+    <div
+      v-show="hasMoreThanTwoPlayers || mode === TOURNAMENT_GAME_MODE"
+      :class="[
+        'paddle__name',
+        {
+          paddle__name_side_left: side === 'left',
+          paddle__name_side_right: side === 'right',
+        },
+      ]"
+    >
+      {{ name }}
+    </div>
+  </div>
+</template>
 
-const { side, params } = defineProps({
+<script setup>
+import { useGameSocketInject } from 'entities/Game/composables';
+import { COLORS, TOURNAMENT_GAME_MODE } from 'entities/Game/config/constants.js';
+import { computed } from 'vue';
+
+const { name, side, paddleIndex, hasMoreThanTwoPlayers } = defineProps({
+  name: {
+    type: String,
+    required: true,
+  },
   side: {
     type: String,
     required: true,
     validator: (value) => ['left', 'right'].includes(value),
   },
-  params: {
-    type: Object,
+  paddleIndex: {
+    type: Number,
     required: true,
-    validator: (value) => {
-      return (
-        typeof value.width === 'number' &&
-        typeof value.height === 'number' &&
-        value.position &&
-        typeof value.position.y === 'number' &&
-        typeof value.speed === 'number' &&
-        typeof value.deacceleration === 'number'
-      );
-    },
+  },
+  hasMoreThanTwoPlayers: {
+    type: Boolean,
+    required: true,
   },
 });
 
-const paddlePosition = ref(params?.y);
-let animationFrameId = null;
+const gameSocket = useGameSocketInject();
 
-const styles = computed(() => ({
-  width: `${params?.width}%`,
-  height: `${params?.height}%`,
-  top: `${params?.y}%`,
-}));
-
-const update = () => {
-  paddlePosition.value = params?.position?.y;
-  animationFrameId = requestAnimationFrame(update);
-};
-
-onMounted(() => {
-  animationFrameId = requestAnimationFrame(update);
+const mode = computed(() => gameSocket.gameSettings.value.mode);
+const paddleWidth = computed(() => {
+  return gameSocket.paddleWidths.value[paddleIndex];
+});
+const paddleHeight = computed(() => {
+  return gameSocket.paddleHeights.value[paddleIndex];
+});
+const paddleY = computed(() => {
+  return gameSocket.paddlePositions.value[paddleIndex];
 });
 
-onUnmounted(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-  }
+const styles = computed(() => {
+  return {
+    width: `${paddleWidth.value}%`,
+    height: `${paddleHeight.value}%`,
+    top: `${paddleY.value}%`,
+    '--outline-color': `var(${COLORS[paddleIndex]})`,
+    '--left-paddle-bg': `var(${hasMoreThanTwoPlayers ? '--dark-color' : '--dark-color-opacity-90'})`,
+    '--right-paddle-bg': `var(${hasMoreThanTwoPlayers ? '--light-color' : '--light-color-opacity-90'})`,
+  };
 });
 </script>
 
-<template>
-  <div
-    class="paddle"
-    :class="{
-      paddle_side_left: side === 'left',
-      paddle_side_right: side === 'right',
-    }"
-    :style="styles"
-  />
-</template>
-
+<!--suppress CssUnusedSymbol -->
 <style scoped>
 .paddle {
+  --outline-color: '';
+  --left-paddle-bg: '';
+  --right-paddle-bg: '';
+
   position: absolute;
-  z-index: 3;
+  z-index: 5;
   transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   border-radius: 10px;
 
@@ -74,11 +98,33 @@ onUnmounted(() => {
 
 .paddle_side_left {
   left: 0;
-  background-color: var(--dark-color);
+  background-color: var(--left-paddle-bg);
+}
+
+.paddle_side_left-color {
+  border-left: 6px solid var(--outline-color);
 }
 
 .paddle_side_right {
   right: 0;
-  background-color: var(--light-color);
+  background-color: var(--right-paddle-bg);
+}
+
+.paddle_side_right-color {
+  border-right: 6px solid var(--outline-color);
+}
+
+.paddle__name {
+  transform: rotate(-90deg);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.paddle__name_side_left {
+  color: var(--light-color);
+}
+
+.paddle__name_side_right {
+  color: var(--dark-color);
 }
 </style>

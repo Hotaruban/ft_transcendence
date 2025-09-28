@@ -1,16 +1,73 @@
 services:
+
+  apache:
+    image: custom-apache
+    container_name: apache
+    build:
+      context: ./requirements/apache
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    depends_on:
+       - nginx
+    networks:
+      - ft_transcendence
+    volumes:
+      - vault_certs:/etc/apache2/ssl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/server-status?auto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: custom-postgresql
+    container_name: postgres
+    build:
+      context: './requirements/postgresql'
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - vault_postgre_env:/run/secrets/postgres_env
+    expose:
+      - '5432'
+    networks:
+      - database_network
+    depends_on:
+      vault-agent:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   backend:
+    image: custom-backend
     container_name: backend
     build:
       context: ./requirements/backend
       dockerfile: Dockerfile
-    environment:
-      - DJANGO_SETTINGS_MODULE=project.settings
+    restart: always
+    secrets:
+      - backend_env_file
     networks:
       - ft_transcendence
+      - database_network
     expose:
-      - 8000
-    restart: always
+      - "8000"
+      - "8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault-agent:
+        condition: service_healthy
+    volumes:
+      - vault_backend_env:/usr/src/app/vault/secrets/backend
+      - vault_postgre_backend:/usr/src/app/vault/secrets/postgres
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
       interval: 1m
@@ -18,15 +75,19 @@ services:
       retries: 5
 
   frontend:
+    image: custom-frontend
     container_name: frontend
     build:
       context: ./requirements/frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://localhost:8443
+        VITE_WS_URL: wss://localhost:8443
+    restart: "no"
     networks:
       - ft_transcendence
     volumes:
       - frontend_build:/usr/src/app/dist
-    restart: "no"
     healthcheck:
       test: ["CMD", "test", "-f", "/usr/src/app/build/index.html"]
       interval: 10s
@@ -35,38 +96,235 @@ services:
       start_period: 5s
 
   nginx:
+    image: custom-nginx
     container_name: nginx
     build:
       context: ./requirements/nginx
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
+    restart: always
+    expose:
+      - "8081"
     volumes:
       - frontend_build:/usr/share/nginx/html
     networks:
       - ft_transcendence
     depends_on:
-      - frontend
-    secrets:
-      - ssl_certificate
-      - ssl_certificate_key
-    restart: always
+      - backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 1m30s
       timeout: 30s
       retries: 5
 
+  vault:
+    image: custom-vault
+    container_name: vault
+    build:
+      context: ./requirements/vault
+      dockerfile: Dockerfile
+    restart: always
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_API_ADDR: "http://vault:8200"
+    expose:
+      - "8200"
+    volumes:
+      - vault_build:/vault/data
+    networks:
+      vault_network:
+          ipv4_address: 192.168.100.2
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  vault-init:
+    image: vault-init
+    container_name: vault-init
+    build:
+      context: ./requirements/vault-init
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - vault
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+    volumes:
+        - ../secrets/unseal_keys:/vault-init/unseal
+        - ../secrets/ssl:/vault-init/ssl 
+        - ../secrets/postgres:/vault-init/postgres
+        - ../secrets/api:/vault-init/api
+        - ../secrets/grafana:/vault-init/grafana
+        - vault_agent_auth:/vault/auth
+    networks:
+      vault_network:
+          ipv4_address: 192.168.100.3
+
+  vault-agent:
+    image: custom-vault-agent
+    container_name: vault-agent
+    build:
+      context: ./requirements/vault-agent
+      dockerfile: Dockerfile
+    restart: always
+    cap_add:
+      - IPC_LOCK
+      - SETFCAP
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+    volumes:
+      - ./requirements/vault-agent/conf/vault-agent.hcl:/vault/config/vault-agent.hcl
+      - vault_agent_auth:/vault/auth
+      - vault_certs:/vault/certs
+      - vault_postgre_env:/vault/postgres
+      - vault_postgre_backend:/vault/postgres_backend
+      - vault_backend_env:/vault/backend
+      - vault_grafana_env:/vault/grafana
+      - vault_postgre_exporter:/vault/postgres_exporter
+    depends_on:
+      vault:
+        condition: service_healthy
+    expose:
+      - "8201"
+    networks:
+      vault_network:
+          ipv4_address: 192.168.100.4
+      ft_transcendence: {}
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    image: custom-grafana
+    container_name: grafana
+    build:
+      context: ./requirements/grafana
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - GF_PATHS_CONFIG=/vault/grafana/grafana.ini
+    expose:
+      - "3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - vault_grafana_env:/vault/grafana:ro
+    depends_on:
+      vault-agent:
+        condition: service_healthy
+    networks:
+      - ft_transcendence
+      - monitoring_network
+
+  prometheus:
+    image: custom-prometheus
+    container_name: prometheus
+    build:
+      context: ./requirements/prometheus
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - "9090"
+    volumes:
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    networks:
+      - monitoring_network
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    restart: always
+    expose:
+      - "9093"
+    networks:
+      - monitoring_network
+
+  node_exporter:
+    image: prom/node-exporter
+    container_name: node_exporter
+    restart: always
+    expose:
+      - "9100"
+    networks:
+      - monitoring_network
+
+  apache_exporter:
+    image: bitnami/apache-exporter
+    container_name: apache_exporter
+    restart: always
+    expose:
+      - "9117"
+    command:
+      - --scrape_uri=http://apache:8080/server-status?auto
+    networks:
+      - monitoring_network
+      - ft_transcendence
+    depends_on:
+      apache:
+        condition: service_healthy
+
+  postgres_exporter:
+    image: custom-postgre-exporter
+    container_name: postgres_exporter
+    build:
+      context: ./requirements/postgres_exporter
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - "9187"
+    networks:
+      - monitoring_network
+      - database_network
+    volumes:
+      - vault_postgre_exporter:/run/secrets/postgres_exporter
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 networks:
+  vault_network:
+    name: vault_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
   ft_transcendence:
+    name: ft_transcendence
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.200.0/24
+  database_network:
+    name: database_network
+    driver: bridge
+  monitoring_network:
+    name: monitoring_network
     driver: bridge
 
 volumes:
   frontend_build:
+  postgres_data:
+  vault_build:
+  vault_logs:
+  vault_certs:
+  vault_agent_auth:
+  vault_postgre_env:
+  vault_postgre_backend:
+  vault_postgre_exporter:
+  vault_backend_env:
+  vault_grafana_env:
+  grafana_data:
+  prometheus_data:
 
 secrets:
-  ssl_certificate:
-    file: ../secrets/ssl/certificate.crt
-  ssl_certificate_key:
-    file: ../secrets/ssl/certificate.key
+  backend_env_file:
+    file: ../secrets/backend/.env.production

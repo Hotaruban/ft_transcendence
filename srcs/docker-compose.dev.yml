@@ -1,0 +1,15 @@
+services:
+  backend:
+    build:
+      args:
+        DEV_MODE: "true"
+    environment:
+      SUPERVISOR_CONF_PATH: "/etc/supervisor/conf.d/supervisord.dev.conf"
+    env_file:
+      - ./requirements/backend/.env.development
+    volumes:
+      - type: bind
+        source: ./requirements/backend
+        target: /usr/src/app
+        read_only: false
+      - /usr/src/app/__pycache__/
