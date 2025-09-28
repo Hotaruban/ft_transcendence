@@ -176,4 +176,4 @@ Project created as part of the `ft_transcendence` evaluation at 42.
 
 - Dima (https://github.com/kobewinona)
 - Hotaru (https://github.com/Hotaruban)
-- Wolf
+- Wolf (https://github.com/Adamsandlerisgod)
