@@ -2,17 +2,14 @@
 
 <p align = "center"> <a href = https://github.com/Hotaruban><img transcendence = "ft_transcendence" src = "./ft_transcendencen.png"></a></p>
 
-### <p align = "center">Summary:
-This project is about doing something you’ve never done before.<br>
-Remind yourself the beginning of your journey in computer science.<br>
-Look at you now. Time to shine!</p>
 
 ### The "ft_transcendence" project at 42 is a full-stack web development challenge that pushes participants to build a fully functional web application. The project involves creating a real-time multiplayer game, implementing authentication, managing databases, and ensuring responsive design across various devices. This project explores various aspects of web technologies such as front-end development, back-end logic, and database management, providing a comprehensive experience in building scalable and secure web applications. It emphasizes the importance of understanding security protocols, real-time communication, and full-stack development.
 
+---
 
-# ft_transcendence
-
+### <p align = "center">Summary:
 This repository contains the full infrastructure for the `ft_transcendence` project, including reverse proxy, HTTPS, monitoring, secrets management, and service orchestration using Docker and Vault.
+</p>
 
 ---
 
@@ -178,5 +175,5 @@ This project uses four isolated Docker networks to separate responsibilities and
 Project created as part of the `ft_transcendence` evaluation at 42.
 
 - Dima (https://github.com/kobewinona)
-- Jeremy (https://github.com/Hotaruban)
+- Hotaru (https://github.com/Hotaruban)
 - Wolf
